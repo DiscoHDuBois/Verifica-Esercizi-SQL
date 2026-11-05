@@ -146,7 +146,7 @@ non cambia e un `CREATE VIEW` si può rilanciare quante volte vuoi. Le chiavi es
 Di solito non serve toccare niente: `verifica.sh` conta gli esercizi dai file in `soluzioni/` ed
 `esercizi/`, quindi il numero si aggiorna da solo a ogni caricamento.
 
-Ma per fissarlo a mano, modifica questa riga in cima a `verifica.sh` (riga 12):
+Ma per fissarlo a mano, modifica questa riga in cima a `verifica.sh` (riga 6):
 
     NUM_ESERCIZI=
 

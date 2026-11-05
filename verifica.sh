@@ -1,21 +1,17 @@
 #!/usr/bin/env bash
-# Confronta le tue query con le soluzioni, sui dati base e sulle varianti.
-# Uso: ./verifica.sh        tutti gli esercizi
-#      ./verifica.sh 3      solo l'esercizio 3
-#      ./verifica.sh 1 4    gli esercizi 1 e 4
-# Lavora su database temporanei: esercizi.db non viene toccato.
 set -uo pipefail
 cd "$(dirname "$0")"
 
-# Quanti esercizi controllare. Se è vuoto li ricava dai file in soluzioni/ ed esercizi/.
-# Per fissarli a mano scrivi il numero, per esempio NUM_ESERCIZI=8.
+# Numero esercizi da verificare
 NUM_ESERCIZI=
 
+# Impostazioni sqlite3 e file temporanei
 SQLITE=(sqlite3 -init /dev/null -batch -bail -cmd 'PRAGMA foreign_keys=ON')
 
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
+# Elenco esercizi e dataset
 elenco_esercizi() {
     if [ -n "$NUM_ESERCIZI" ]; then
         seq 1 "$NUM_ESERCIZI"
@@ -24,7 +20,7 @@ elenco_esercizi() {
     fi
 }
 
-elenco_dataset() {  # "base" e il nome di ogni variante
+elenco_dataset() {
     local file
     echo base
     for file in varianti/*.sql; do
@@ -32,7 +28,8 @@ elenco_dataset() {  # "base" e il nome di ogni variante
     done
 }
 
-crea_db() {  # $1 = dataset; stampa il percorso di un database nuovo
+# Database temporanei
+crea_db() {
     local db
     db=$(mktemp -p "$tmp" XXXXXX.db)
     cp dati/base.db "$db"
@@ -43,16 +40,18 @@ crea_db() {  # $1 = dataset; stampa il percorso di un database nuovo
     echo "$db"
 }
 
-senza_commenti() {  # $1 = file sql
+# Analisi query
+senza_commenti() {
     sed -zE 's#/\*([^*]|\*+[^*/])*\*+/##g; s/--[^\n]*//g' "$1"
 }
 
-ha_order_by() {  # $1 = file sql; vero se l'ultima istruzione ha ORDER BY
+ha_order_by() {
     senza_commenti "$1" | awk 'BEGIN { RS = ";" } NF { ultima = $0 } END { print ultima }' |
         tr '\n' ' ' | grep -qiE 'order[[:space:]]+by'
 }
 
-normalizza() {  # arrotonda i decimali a 2 cifre: 10.0 diventa 10, 3.14159 diventa 3.14
+# Confronto risultati
+normalizza() {
     awk -F'|' -v OFS='|' -v CONVFMT='%.2f' '{
         for (i = 1; i <= NF; i++)
             if ($i ~ /^-?[0-9]+\.[0-9]+$/) $i = sprintf("%.2f", $i) + 0
@@ -60,7 +59,7 @@ normalizza() {  # arrotonda i decimali a 2 cifre: 10.0 diventa 10, 3.14159 diven
     }'
 }
 
-stato() {  # $1 = database; stampa tabelle e viste in una forma confrontabile
+stato() {
     local nome
     {
         "${SQLITE[@]}" -list -noheader "$1" "
@@ -78,24 +77,22 @@ stato() {  # $1 = database; stampa tabelle e viste in una forma confrontabile
     } | LC_ALL=C sort
 }
 
-esegui() {  # $1 = file sql, $2 = database, $3 = dove scrivere le righe; ritorna 1 se dà errore
+esegui() {
     "${SQLITE[@]}" -list -noheader -nullvalue NULL "$2" < "$1" 2>&1 | normalizza > "$3"
     return "${PIPESTATUS[0]}"
 }
 
-stesse_righe() {  # confronta le righe di $tmp/mio e $tmp/ref senza badare all'ordine
+stesse_righe() {
     cmp -s <(LC_ALL=C sort "$tmp/mio") <(LC_ALL=C sort "$tmp/ref")
 }
 
-confronta() {  # $1 = tua query, $2 = soluzione, $3 = dataset
-    # Ritorna 0 se coincidono, 1 se no, 2 se la query dà errore, 3 se la soluzione dà errore.
+confronta() {
     local db_mio db_ref
     db_mio=$(crea_db "$3")
     db_ref=$(crea_db "$3")
     esegui "$1" "$db_mio" "$tmp/mio" || return 2
     esegui "$2" "$db_ref" "$tmp/ref" || return 3
 
-    # La soluzione non stampa niente ma cambia il database: conta lo stato finale.
     if [ ! -s "$tmp/ref" ]; then
         stato "$(crea_db "$3")" > "$tmp/stato_iniziale"
         stato "$db_ref" > "$tmp/stato_ref"
@@ -113,11 +110,12 @@ confronta() {  # $1 = tua query, $2 = soluzione, $3 = dataset
     fi
 }
 
-risposta() {  # $1 = file sql, $2 = dataset; mostra quello che produce il file
+# Stampa risposta
+risposta() {
     local db out
     db=$(crea_db "$2")
     out=$("${SQLITE[@]}" -box -header -nullvalue NULL "$db" < "$1" 2>&1)
-    if [ -z "$out" ]; then  # nessuna riga stampata: mostra cosa è cambiato nel database
+    if [ -z "$out" ]; then
         stato "$(crea_db "$2")" > "$tmp/prima"
         stato "$db" > "$tmp/dopo"
         out=$(diff "$tmp/prima" "$tmp/dopo" | sed -n 's/^< /- /p; s/^> /+ /p')
@@ -125,7 +123,8 @@ risposta() {  # $1 = file sql, $2 = dataset; mostra quello che produce il file
     echo "${out:-(nessuna riga)}" | sed 's/^/    /'
 }
 
-verifica() {  # $1 = numero esercizio; ritorna 0 se ok
+# Verifica esercizio
+verifica() {
     local n=$1 mio="esercizi/es$1.sql" ref d esito=0 passati riferimenti=()
     local piu_vicina="" dati_diversi="" massimo=-1
 
@@ -182,7 +181,6 @@ verifica() {  # $1 = numero esercizio; ritorna 0 se ok
         esac
     done
 
-    # Nessuna soluzione coincide: mostra la differenza da quella che regge su più dataset.
     ref=$piu_vicina
     d=$dati_diversi
     confronta "$mio" "$ref" "$d"
@@ -197,6 +195,7 @@ verifica() {  # $1 = numero esercizio; ritorna 0 se ok
     return 1
 }
 
+# Controllo argomenti
 mapfile -t ESERCIZI < <(elenco_esercizi)
 mapfile -t DATASET < <(elenco_dataset)
 
@@ -214,6 +213,7 @@ for d in "${DATASET[@]}"; do
     crea_db "$d" > /dev/null || exit 2
 done
 
+# Esecuzione verifiche
 [ $# -gt 0 ] || set -- "${ESERCIZI[@]}"
 esito=0
 for n in "$@"; do

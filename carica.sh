@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
-# Carica in questa cartella un database e gli esercizi svolti.
-# Uso: ./carica.sh [--forza] <database> <esercizi-svolti>
-#   <database>         file SQLite, oppure script SQL che crea e riempie le tabelle
-#   <esercizi-svolti>  file unico con testi e soluzioni, oppure cartella con es1.sql, es2.sql, ...
-#   --forza            sostituisce gli esercizi già caricati, cancellando anche le tue risposte
 set -euo pipefail
 
+# Impostazioni e messaggi
 SQLITE=(sqlite3 -init /dev/null -batch -bail)
 
 uso() {
-    sed -n '3,6p' "$0" | sed 's/^# //' >&2
+    cat >&2 <<'FINE'
+Uso: ./carica.sh [--forza] <database> <esercizi-svolti>
+  <database>         file SQLite, oppure script SQL che crea e riempie le tabelle
+  <esercizi-svolti>  file unico con testi e soluzioni, oppure cartella con es1.sql, es2.sql, ...
+  --forza            sostituisce gli esercizi già caricati, cancellando anche le tue risposte
+FINE
     exit 2
 }
 
@@ -18,6 +19,7 @@ errore() {
     exit 1
 }
 
+# Controllo argomenti
 forza=0
 if [ "${1:-}" = --forza ]; then
     forza=1
@@ -34,17 +36,19 @@ database=$(realpath "$1")
 svolti=$(realpath "$2")
 cd "$(dirname "$0")"
 
+# Controllo cartella
 if [ "$forza" = 0 ] && [ -e dati/base.db ]; then
     echo "Questa cartella ha già degli esercizi caricati. Per un nuovo esame usa una copia" >&2
     echo "pulita della cartella, oppure rilancia con --forza (cancella anche le tue risposte)." >&2
     exit 1
 fi
 
-# Prepara tutto in una cartella temporanea: se qualcosa fallisce, qui non cambia niente.
+# Cartella temporanea
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 mkdir "$tmp"/{dati,esercizi,soluzioni,testi,varianti}
 
+# Lettura database
 if [ "$(head -c 15 "$database")" = "SQLite format 3" ]; then
     cp "$database" "$tmp/dati/base.db"
     chmod u+w "$tmp/dati/base.db"
@@ -56,7 +60,7 @@ tabelle=$("${SQLITE[@]}" -list -noheader "$tmp/dati/base.db" "
     WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")
 [ -n "$tabelle" ] || errore "Il database non contiene tabelle: $database"
 
-# Senza righe ogni query dà un risultato vuoto e una risposta sbagliata risulterebbe OK.
+# Controllo dati
 vuote=""
 piene=0
 while IFS= read -r nome; do
@@ -73,8 +77,8 @@ if [ "$piene" = 0 ]; then
 fi
 [ -z "$vuote" ] || echo "Attenzione: tabelle senza righe:$vuote"
 
+# Lettura esercizi svolti
 if [ -d "$svolti" ]; then
-    # Cartella: i commenti iniziali di ogni esN.sql diventano il testo dell'esercizio.
     cp "$svolti"/es*.sql "$tmp/soluzioni/" 2>/dev/null || true
     for file in "$tmp"/soluzioni/es*.sql; do
         [ -f "$file" ] || continue
@@ -83,10 +87,8 @@ if [ -d "$svolti" ]; then
         sed -n '/^[[:space:]]*\(--.*\)\?$/!q; s/^[[:space:]]*-- \?//p' "$file" > "$tmp/testi/$nome.txt"
     done
 else
-    # File unico: testi con un'etichetta, una riga "Soluzioni", soluzioni con la stessa etichetta.
-    # Etichette valide: "1." "1a." "Es. 1" "Esercizio 1a:" e, da sole sulla riga, "1a" e "4".
     awk -v dir="$tmp" '
-        function posizione(e,   lettera) {  # 1 -> 100, 1a -> 101, 1b -> 102, 2 -> 200
+        function posizione(e,   lettera) {
             lettera = e
             sub(/^[0-9]+/, "", lettera)
             return e * 100 + (lettera == "" ? 0 : index("abcdefghijklmnopqrstuvwxyz", lettera))
@@ -112,7 +114,6 @@ else
                 sub(/[.:[:space:]]*$/, "", etichetta)
 
                 valida = posizione(etichetta) > ultima
-                # Un numero da solo può essere un numero di pagina o un valore nella query.
                 if (riga ~ /^[[:space:]]*[0-9]+[[:space:]]*$/) {
                     valida = valida && etichetta + 0 == int(ultima / 100) + 1
                     if (sezione == "soluzioni") valida = valida && (etichetta in testi)
@@ -134,12 +135,14 @@ else
     ' "$svolti"
 fi
 
+# Elenco esercizi
 numeri=$(ls "$tmp/soluzioni" "$tmp/testi" | sed -nE 's/^es([0-9]+[a-z]?)(_.*)?\.(sql|txt)$/\1/p' | sort -Vu)
 if [ -z "$(ls "$tmp/soluzioni")" ]; then
     echo "Nessuna soluzione trovata in: $svolti" >&2
     errore "Controlla il README.md, sezione \"Condizioni perché funzioni\"."
 fi
 
+# Creazione file esercizi
 for n in $numeri; do
     {
         echo "-- Esercizio $n"
@@ -155,6 +158,7 @@ for n in $numeri; do
     fi
 done
 
+# Prova soluzioni
 "${SQLITE[@]}" "$tmp/dati/base.db" .dump > "$tmp/iniziale.dump"
 for file in "$tmp"/soluzioni/es*.sql; do
     cp "$tmp/dati/base.db" "$tmp/prova.db"
@@ -167,10 +171,12 @@ for file in "$tmp"/soluzioni/es*.sql; do
     fi
 done
 
+# Installazione cartella
 rm -rf dati esercizi soluzioni varianti esercizi.db
 mv "$tmp"/{dati,esercizi,soluzioni,varianti} .
 ./reset.sh > /dev/null
 
+# Recap
 echo "Tabelle: $tabelle"
 echo "Esercizi caricati:" $numeri
 echo "Scrivi le risposte in esercizi/es<numero>.sql, poi lancia ./verifica.sh <numero>"
