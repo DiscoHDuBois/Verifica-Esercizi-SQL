@@ -235,14 +235,14 @@ e riaprilo dopo.
   diverso. L'esito è DIVERSO con la nota "righe giuste, ordine diverso dalla soluzione": in quel
   caso giudica tu.
 
-## Attenzione con sqlite3
+## Nota su sqlite3
 
 - Le stringhe vanno tra apici singoli: `'abc'`. Le virgolette doppie danno errore.
-- Una vista resta in `esercizi.db`: per rileggere a mano un file che fa `CREATE VIEW`, aggiungi
-  prima `DROP VIEW IF EXISTS V;` oppure lancia `./reset.sh`.
-- Le chiavi esterne sono attive solo se apri il database con `-init init.sql`.
-- `> ALL (...)` e `> ANY (...)` non esistono in SQLite: usa `MAX`, `MIN` o `NOT EXISTS`.
-- La divisione tra interi tronca: `7/2` vale 3. Per avere i decimali scrivi `7*1.0/2`.
+- Una vista resta in `esercizi.db`: per rileggere a mano un file che fa `CREATE VIEW`, aggiungere
+  prima `DROP VIEW IF EXISTS V;` oppure: `./reset.sh`.
+- Le chiavi esterne sono attive solo se il database viene aperto con `-init init.sql`.
+- `> ALL (...)` e `> ANY (...)` non esistono in SQLite: si usa `MAX`, `MIN` o `NOT EXISTS`.
+- La divisione tra interi tronca: `7/2` = 3. Per avere i decimali -> `7*1.0/2`.
 
 ## File
 
