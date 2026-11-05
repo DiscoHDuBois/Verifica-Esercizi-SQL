@@ -1,7 +1,31 @@
 # Verifica esercizi SQL
 
 Carichi un database e gli esercizi svolti, scrivi le tue query e `./verifica.sh <numero>`
-le confronta con le soluzioni. Serve solo `sqlite3`.
+le confronta con le soluzioni.
+
+## Requisiti
+
+Linux, con:
+
+- **`sqlite3` 3.33+.** Con versioni più vecchie gli esiti restano giusti, ma la
+  risposta non viene mostrata. Ex `sqlite3 --version` su Ubuntu 20.04: `3.31`.
+- **Bash 4+.**
+- **Strumenti GNU base:** `coreutils`, `sed`, `grep`, `diffutils` e `awk` (va bene sia
+  `gawk` sia `mawk`).
+- **`pdftotext`, facoltativo.** Per convertire le prove in PDF.
+
+| Sistema | Comando |
+| --- | --- |
+| Fedora, RH, Rocky, Alma | `sudo dnf install sqlite diffutils poppler-utils` |
+| Debian, Ubuntu, Mint | `sudo apt update && sudo apt install sqlite3 poppler-utils` |
+| Arch, Manjaro | `sudo pacman -S sqlite diffutils poppler` |
+| openSUSE | `sudo zypper install sqlite3 diffutils gawk poppler-tools` |
+
+(l'ultimo pacchetto di ogni comando è quello di `pdftotext`).
+
+
+Su macOS non funziona con gli strumenti predefiniti (Bash 3.2 e `sed` BSD), **non testato**.
+Su Windows si può provare WSL con Ubuntu e il comando di Debian e Ubuntu, **non provato**.
 
 ## Avvio rapido
 

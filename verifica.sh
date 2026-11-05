@@ -6,10 +6,10 @@ cd "$(dirname "$0")"
 NUM_ESERCIZI=
 
 # Impostazioni sqlite3 e file temporanei
-SQLITE=(sqlite3 -init /dev/null -batch -bail -cmd 'PRAGMA foreign_keys=ON')
-
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
+echo 'PRAGMA foreign_keys=ON;' > "$tmp/init.sql"
+SQLITE=(sqlite3 -init "$tmp/init.sql" -batch -bail)
 
 # Elenco esercizi e dataset
 elenco_esercizi() {
