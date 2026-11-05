@@ -1,0 +1,11 @@
+# Creati da carica.sh: dipendono dall'esame caricato
+/dati/
+/esercizi/
+/soluzioni/
+/varianti/
+/esercizi.db
+
+# File temporanei di SQLite
+*.db-journal
+*.db-wal
+*.db-shm
