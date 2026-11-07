@@ -3,6 +3,9 @@ set -euo pipefail
 
 # Impostazioni e messaggi
 SQLITE=(sqlite3 -init /dev/null -batch -bail)
+NON_SQLITE='auto_increment|engine[[:space:]]*=|create[[:space:]]+(database|schema|sequence|extension|type)'
+NON_SQLITE+='|^[[:space:]]*use[[:space:]]|lock[[:space:]]+tables|foreign_key_checks|nextval[[:space:]]*\('
+NON_SQLITE+='|owner[[:space:]]+to|search_path|::[a-z]|^copy[[:space:]]'
 
 uso() {
     cat >&2 <<'FINE'
@@ -17,6 +20,16 @@ FINE
 errore() {
     echo "$1" >&2
     exit 1
+}
+
+# Analisi file SQL
+senza_commenti() {
+    sed -zE 's#/\*([^*]|\*+[^*/])*\*+/##g; s/--[^\n]*//g' "$1"
+}
+
+inizia_con_sql() {
+    senza_commenti "$1" | tr -s '[:space:]' ' ' |
+        grep -iE '^ ?(select|with|insert|replace|update|delete|create|drop|alter|values|begin|pragma)\b' > /dev/null
 }
 
 # Controllo argomenti
@@ -53,6 +66,9 @@ if [ "$(head -c 15 "$database")" = "SQLite format 3" ]; then
     cp "$database" "$tmp/dati/base.db"
     chmod u+w "$tmp/dati/base.db"
 elif ! "${SQLITE[@]}" "$tmp/dati/base.db" < "$database"; then
+    if riga=$(grep -inE -m1 "$NON_SQLITE" "$database"); then
+        echo "Riga ${riga%%:*}: lo script sembra scritto per MySQL o PostgreSQL, serve SQLite (leggi README.md)." >&2
+    fi
     errore "Errore nello script del database: $database"
 fi
 tabelle=$("${SQLITE[@]}" -list -noheader "$tmp/dati/base.db" "
@@ -79,13 +95,19 @@ fi
 
 # Lettura esercizi svolti
 if [ -d "$svolti" ]; then
-    cp "$svolti"/es*.sql "$tmp/soluzioni/" 2>/dev/null || true
-    for file in "$tmp"/soluzioni/es*.sql; do
+    scartati=""
+    for file in "$svolti"/*.sql; do
         [ -f "$file" ] || continue
         nome=$(basename "$file" .sql)
+        if [[ ! $nome =~ ^es[0-9]+[a-z]?(_.*)?$ ]]; then
+            scartati+=" $nome.sql"
+            continue
+        fi
+        cp "$file" "$tmp/soluzioni/"
         [[ $nome =~ ^es[0-9]+[a-z]?$ ]] || continue
         sed -n '/^[[:space:]]*\(--.*\)\?$/!q; s/^[[:space:]]*-- \?//p' "$file" > "$tmp/testi/$nome.txt"
     done
+    [ -z "$scartati" ] || echo "Attenzione: file ignorati, il nome deve essere esN.sql o esN_nome.sql:$scartati"
 else
     awk -v dir="$tmp" '
         function posizione(e,   lettera) {
@@ -163,7 +185,11 @@ done
 for file in "$tmp"/soluzioni/es*.sql; do
     cp "$tmp/dati/base.db" "$tmp/prova.db"
     if ! stampato=$("${SQLITE[@]}" "$tmp/prova.db" < "$file" 2>"$tmp/errore"); then
-        echo "Attenzione: soluzioni/$(basename "$file") dà errore e va corretta:"
+        if inizia_con_sql "$file"; then
+            echo "Attenzione: soluzioni/$(basename "$file") dà errore e va corretta:"
+        else
+            echo "Attenzione: soluzioni/$(basename "$file") non inizia con un'istruzione SQL (algebra o teoria?): va corretta o tolta:"
+        fi
         sed 's/^/    /' "$tmp/errore"
     elif [ -z "$stampato" ] && "${SQLITE[@]}" "$tmp/prova.db" .dump | cmp -s - "$tmp/iniziale.dump"; then
         echo "Attenzione: soluzioni/$(basename "$file") non restituisce righe su questi dati:"
