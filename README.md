@@ -53,9 +53,10 @@ al prompt con il `;` finale. Comandi utili: `.tables`, `.schema Ordini`, `.quit`
 Una prova si può verificare solo se ha tutto questo:
 
 1. **Un database con dati.** Serve un file SQLite, o uno script SQL compatibile con SQLite: uno
-   script scritto per MySQL o PostgreSQL può dare errore e va adattato. Se tutte le tabelle sono
-   vuote `carica.sh` si ferma, perché ogni query darebbe zero righe e anche una risposta
-   sbagliata risulterebbe OK. Molte prove riportano solo lo schema: i dati vanno aggiunti a mano.
+   script scritto per MySQL o PostgreSQL può dare errore e va adattato. In quel caso `carica.sh`
+   indica la prima riga sospetta. Se tutte le tabelle sono vuote `carica.sh` si ferma, perché ogni
+   query darebbe zero righe e anche una risposta sbagliata risulterebbe OK. Molte prove riportano
+   solo lo schema: i dati vanno aggiunti a mano.
 2. **Le soluzioni.** La risposta attesa si ottiene eseguendo la soluzione: senza soluzioni non
    c'è niente da confrontare. Devono essere query che girano su SQLite.
 3. **Gli esercizi in formato testo.** `carica.sh` non legge i PDF. Un PDF con il testo
@@ -67,9 +68,9 @@ Una prova si può verificare solo se ha tutto questo:
 4. **Esercizi ed etichette riconoscibili.** Le forme accettate sono descritte in
    [Cosa puoi caricare](#cosa-puoi-caricare). Se un file ne usa altre, vanno corrette a mano.
 5. **Esercizi di SQL.** Si controllano solo query SQL, non domande di algebra relazionale,
-   progettazione o teoria. `carica.sh` non sa riconoscerle: una prova di questo tipo può
-   caricarsi lo stesso, e le sue risposte vengono segnalate come soluzioni che danno errore. In
-   un file convertito da un PDF la parte prima del primo esercizio viene ignorata.
+   progettazione o teoria. Una prova di questo tipo può caricarsi lo stesso, ma le risposte che
+   non iniziano con un'istruzione SQL vengono segnalate con un avviso. In un file convertito da
+   un PDF la parte prima del primo esercizio viene ignorata.
 
 `carica.sh` si ferma con un messaggio, lasciando la cartella com'è, se il database è vuoto o dà
 errore, se non trova nessuna soluzione o se riceve un PDF.
@@ -78,7 +79,9 @@ In questi casi invece carica lo stesso, ma la verifica è meno affidabile e conv
 
 | Avviso | Cosa fare |
 | --- | --- |
+| `file ignorati` | Rinominare i file in `esN.sql` o `esN_nome.sql`: con altri nomi non vengono caricati |
 | `soluzioni/esN.sql dà errore` | Correggere il file, o toglierlo se non è una query: finché dà errore l'esercizio non è verificabile |
+| `soluzioni/esN.sql non inizia con un'istruzione SQL` | Come sopra: di solito è una domanda di algebra o teoria, oppure testo prima della query |
 | `soluzioni/esN.sql non restituisce righe` | Aggiungere dati o una variante: una risposta sbagliata senza righe risulterebbe OK |
 | `tabelle senza righe` | Aggiungere dati: le query su quelle tabelle danno risultati vuoti |
 | `l'esercizio N non ha una soluzione` | Scrivere `soluzioni/esN.sql`, altrimenti l'esercizio non è verificabile |
@@ -129,7 +132,8 @@ Se schema e dati sono in due file, uniscili prima: `cat schema.sql dati.sql > da
 
 - una cartella con un file per esercizio: `es1.sql`, `es2.sql`, `es3a.sql`, ... I commenti `--` all'inizio
   di ogni file diventano il testo dell'esercizio. Eventuali soluzioni alternative
-  (`es4_altra.sql`) vengono caricate anche loro.
+  (`es4_altra.sql`) vengono caricate anche loro. I file `.sql` con altri nomi vengono ignorati e
+  segnalati.
 
 `carica.sh` crea i file in `esercizi/` e `soluzioni/`, prepara `esercizi.db` e prova ogni
 soluzione sul database: se una dà errore lo segnala, così puoi correggerla.
