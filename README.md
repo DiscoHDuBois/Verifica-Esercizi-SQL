@@ -5,7 +5,7 @@ le confronta con le soluzioni.
 
 ## Requisiti
 
-Linux, con:
+**Linux**, con:
 
 - **`sqlite3` 3.33+.** Con versioni più vecchie gli esiti restano giusti, ma la
   risposta non viene mostrata. Ex `sqlite3 --version` su Ubuntu 20.04: `3.31`.
