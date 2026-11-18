@@ -3,6 +3,8 @@
 Carichi un database e gli esercizi svolti, scrivi le tue query e `./verifica.sh <numero>`
 le confronta con le soluzioni.
 
+![Linux](https://img.shields.io/badge/Linux-000000?style=for-the-badge&logo=linux&logoColor=white) ![SQL](https://img.shields.io/badge/Sqlite-000000?style=for-the-badge&logo=sqlite&logoColor=white)
+
 ## Requisiti
 
 **Linux**, con:
